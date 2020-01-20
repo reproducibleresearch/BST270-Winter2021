@@ -2,7 +2,13 @@
 
 Instructor: Heather Mattie (hemattie@hsph.harvard.edu)
 
+TA: Aaron Sonabend (asonabend@g.harvard.edu)
+
 Mondays 3:45-5:15pm Kresge 205
+
+Heather's office hour: Mondays 5:15-6:15pm
+
+Aaron's office hour: TBD
 
 #### Purpose of the course
 Reproducible research has become increasingly important in the biomedical sciences. The science community has recognized reproducibility is a growing challenge in basic, clinical and population sciences. Experimental design, data provenance, analytic methods and tools, and reporting science play a critical role in the biomedical research ecosystem to ensure scientific rigor, robustness and transparency. Statistical and computational methods and tools are fundamental for making scientific results reproducible. 
