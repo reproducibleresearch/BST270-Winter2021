@@ -1,0 +1,157 @@
+---
+title: "BST 270 In-class Project"
+output: html_document
+---
+
+## Introduction
+In this Rmarkdown file we will attempt to reproduce the figures, tables and analyses presented in the paper [_Relation between Optimism and Lipids in Midlife_.](https://www.ajconline.org/article/S0002-9149(13)00388-3/pdf)
+
+1. Boehm, J. K., Williams, D. R., Rimm, E. B., Ryff, C., & Kubzansky, L. D. (2013). Relation between Optimism and Lipids in Midlife. The American Journal of Cardiology, 111(10), 1425-1431.
+http://doi.org/10.1016/j.amjcard.2013.01.292
+
+In 1995, MIDUS survey data were collected from a total of 7,108 participants. The baseline sample was comprised of individuals from four subsamples: (1) a national RDD (random digit dialing) sample ($n = 3,487$); (2) oversamples from five metropolitan areas in the U.S. ($n = 757$); (3) siblings of individuals from the RDD sample ($n = 950$); and (4) a national RDD sample of twin pairs ($n = 1,914$). All eligible participants were non-institutionalized, English-speaking adults in the contiguous United States, aged 25 to 74. All respondents were invited to participate in a phone interview of approximately 30 minutes in length and complete 2 self-administered questionnaires (SAQs), each of approximately 45 pages in length. In addition, the twin subsample was administered a short screener to assess zygosity and other twin-specific information. With funding provided by the National Institute on Aging, a longitudinal follow-up of MIDUS I began in 2004. Every attempt was made to contact all original respondents and invite them to participate in a second wave of data collection. Of the 7,108 participants in MIDUS I, 4,963 were successfully contacted to participate in another phone interview of about 30 minutes in length. MIDUS II also included two self-administered questionnaires (SAQs), each of about 55 pages in length, which were mailed to participants. The overall response rate for the SAQs was 81\%. Over 1,000 journal articles have been written using MIDUS I and II data since 1995.
+
+Here we attempt to reproduce the findings of [1] and critique the reproducibility of the article. This particular article focuses only on MIDUS II data, including biomarker data, and investigates the relationship between optimism and lipids. The MIDUS II data and supporting codebook and other documents can be downloaded \href{https://www.icpsr.umich.edu/icpsrweb/ICPSR/studies/4652?archive=ICPSR&q=MIDUS+}{here}. The data can be downloaded in multiple formats. Here we use the R data files and perform all data cleaning and analyses in R version 3.5.1. The biomarker data can be downloaded \href{https://www.icpsr.umich.edu/icpsrweb/NACDA/studies/29282}{here}.
+
+
+## Data Dictionary
+This manuscript uses several variables from multiple data files. Some of these variables don't have intuitive names and need to be manually looked up either online or in the codebooks provided in the data downloads. [This google sheet](https://docs.google.com/spreadsheets/d/1W9LxvfuGnVJm4tST61RtBPJYHuHzjuZE6lUKsIwtHaU/edit?usp=sharing) acts as a data dictionary for only the variables we believe were used for the analysis according to our understanding of the methods section of the paper.
+
+## Load needed packages
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+```
+
+
+## Load and combine data
+```{r}
+load("ICPSR_04652/DS0001/04652-0001-Data.rda") # load MIDUS2 interview/questionnaire data
+load("ICPSR_29282/DS0001/29282-0001-Data.rda") # load MIDUS2 biomarker data
+df <- inner_join(da29282.0001, da04652.0001, by="M2ID") # merge the two dataframes using an inner join
+dim(df)
+```
+We have a total of 1,054 participants after merging the data frames. 
+
+### Optimism Score
+We can drop any observation with a missing value in the `B1SORIEN` column which indicates the overall optimism score for a given participant.
+
+```{r}
+df <- df %>% drop_na(B1SORIEN) # drop rows with missing optimism values 
+dim(df)
+```
+We lose 4 participants.
+
+### Lipid Measurments Filter
+
+Next, we drop the participants with missing lipid level measurements. The authors state that they are considering "a lipid panel of total cholesterol, HDL cholesterol, LDL cholesterol, and triglycerides". Therefore, we can drop rows with missing values in the `B4BCHOL` (total cholesterol), `B4BLDL` (LDL cholesterol), `B4BHDL` (HDL cholesterol), and `B4BTRIGL` (triglycerides) columns.
+
+```{r}
+df <- df %>% drop_na(B4BCHOL, B4BLDL, B4BHDL, B4BTRIGL) # drop rows with missing lipid measurements
+dim(df)
+```
+We lose 11 participants. 
+
+### Potential Confounders Filter
+
+Next, we drop observations with missing confounder variables, which according to the authors were "factors known to be associated with the lipid profiles". These include "age (in years), gender, race (white, nonwhite), education (less than high school degree, high school degree, some college, college degree or greater), household income, and months between the optimism and serum lipid assessments". All of these are easily identified, except for months between optimisim and serum lipid assessments. There are two potential variables that could fit this description, `B4ZB1PLG` and `B4ZB1SLG`. They measure the lag (in months) between the phone interview and the self-administered questionnaire, respectively, and the biomarker assessment. It is unclear whether optimism was assessed during the phone interview or with the questionnaire, but we will assume the latter and use `B4ZB1SLG`. Additionally, the authors wish to consider certain health statuses as confounders, including, chronic conditions (none or $\geq 1$ condition) and blood pressure medication use (no, yes). The chronic conditions variable is easily identified as `B1SCHROX`, but there are several columns for blood pressure medication, including `B1PA24B`, `B1PA24C`, `B1PA24D`, and `B4XPC_1156`. Using any of these variables for our filter leads to less than 990 participants. This may be because those without high blood pressure did not answer a question about whether or not they used medication to control "their" high blood pressure, thus leading to a lot of missing values. This appears to be the case when consulting the data cookbooks as well, so we will have to recode NAs to 0 if they don't have high blood pressure (found in `B1PA24`). We choose to use `B1PA24B` as our blood pressure indicator as well, as it has the least missing values. In order to examine optimism’s independent effects from psychological ill-being, negative affect was also controlled for in the secondary analyses. Negative affect was assessed during the psychosocial project using 5 items from a widely used and psychometrically valid scale, and is found in the `B1SNEGAF` variable. 
+
+```{r}
+df <- df %>% drop_na(B1PA24) # drop rows with missing diagnosis of blood pressure
+
+# fix blood pressure column as described above; if they answered no to ever being diagnosed with high blood pressure
+# and have an NA for ever taking blood pressure medication, change NA to 0 (no).
+df[is.na(df$B1PA24B),]$B1PA24B <- ifelse(df[is.na(df$B1PA24B),]$B1PA24 == "(2) NO", "(2) NO", NA)
+
+# drop rows with missing potential confounders
+df <- df %>% drop_na(B1PAGE_M2.x, B1PRSEX.x, B1PF7A, B1PB1, B1STINC1, B4ZB1SLG, B1SCHROX, B1PA24B, B1SNEGAF) 
+
+dim(df)
+```
+We lose 28 participants.
+
+### Pathway Variables Filter
+
+Lastly, the authors wish to control for "potential behavioral pathways", including "smoking status
+(current smoker, past smoker, never smoker), average number of drinks consumed/day in the past month, regular exercise $\geq 3$ times/week for 20 minutes (no, yes), and prudent diet". We can find out it someone has ever smoked using the `B4H26` column and we can use `B4H26A` to find out if they currently smoke. We can use `B4H36` as an indicator for average number of drinks consumed/day in the past month, but it drops our cohort size well below 990. This appears to be a similar issue that we ran into with blood pressure in that a lot of missing values appear to be because a participant did not drink at all in the past month. We will use the `B4H33` column to check whether a patient has had anything to drink in the past month, and if they still have a missing value, then we will drop that participant. We can use `B4H25` for the exercise variable. According to the authors, "a prudent diet score was calculated by giving the participants a point for consuming $\geq 3$ servings/day of fruit and vegetables, $\geq 3$ servings/day of whole grains, $\geq 1$ servings/week of fish, $\geq 1$ servings/week of lean meat, no sugared beverages, $\leq 2$ servings/week of beef or high-fat meat, and food at a fast food restaurant less than once per week." We will have to hand calculate this value ourselves, and drop all participants with a missing value for a given variable. Lastly, the authors also use BMI measured at biomarker assesment as a pathway variable (`B4PBMI`).
+
+```{r}
+# calculate prudent diet score
+df <- df %>% mutate(veggies    = ifelse(B4H21 == "(3) 3-4 SERVINGS/DAY" | B4H21 == "(4) 5 OR MORE SERVINGS/DAY", 1, 0),
+                    grains     = ifelse(B4H22 == "(3) 3-4 SERVINGS/DAY" | B4H22 == "(4) 5 OR MORE SERVINGS/DAY", 1, 0),
+                    fish       = ifelse(B4H23A == "(3) 1-2 X/WEEK" | B4H23A == "(4) 3-4 X/WEEK" | 
+                                        B4H23A == "(5) 5 OR MORE X/WEEK", 1, 0),
+                    lean_meat  = ifelse(B4H23C == "(3) 1-2 X/WEEK" | B4H23C == "(4) 3-4 X/WEEK" | 
+                                        B4H23C == "(5) 5 OR MORE X/WEEK", 1, 0),
+                    beef       = ifelse(B4H23B == "(3) 1-2 X/WEEK" | B4H23B == "(2) LESS THAN ONCE/WEEK" | 
+                                        B4H23B == "(1) NEVER", 1, 0),
+                    restaurant = ifelse(B4H24 == "(2) LESS THAN ONCE/WEEK" | B4H24 == "(1) NEVER", 1, 0),
+                    sugarbev   = ifelse(B4H20 == "(1) NONE", 1, 0),
+                    prudent_diet = veggies + grains + fish + lean_meat + beef + restaurant + sugarbev)
+
+
+# fix number of drinks column
+df[is.na(df$B4H36),]$B4H36 <- ifelse(df[is.na(df$B4H36),]$B4H33=="(2) NO", 0, NA)
+
+ # drop rows with missing pathways variables
+df <- df %>% drop_na(B4H26, B4H25, B4H36, prudent_diet, B4PBMI)
+
+dim(df)
+```
+
+```{r}
+# keep the variables we need for the figure and tables
+df <- df %>% dplyr::select(M2ID, B1SORIEN, B4BCHOL, B4BLDL, B4BHDL, B4BTRIGL, B1PAGE_M2.x, 
+                    B1PRSEX.x, B1PF7A, B1PB1, B1STINC1, B4ZB1SLG, B1SCHROX, B1PA24B, 
+                    B1SNEGAF, B4H26, B4H26A, B4H25, B4H36, prudent_diet, B4PBMI, B1SA12C, B4H1HD)
+
+```
+
+We lose another 9 individuals and have a sample of size 1,002. 
+
+We were unable to achieve a sample size of $N = 990$ using our filters, so we do not have the exact same cohort from the original paper. We attempt to recreate Figure 1 and Tables 1-3 using our $N = 1,002$ observations instead. 
+
+Note - we won't be calculating the column values or the p-values for Table 1.
+
+## Figure 1
+
+```{r}
+
+```
+
+## Table 1
+```{r}
+
+```
+
+
+## Table 2
+```{r}
+
+```
+
+
+## Table 3
+```{r}
+
+```
+
+
+## Critique
+* Is the data publicly available?
+* Is the data easy/intuitive to access?
+* Is there a codebook and/or instructions about how the data and documentation is organized?
+* Are the file names intuitive?
+* Are the variable names intuitive?
+* Is the software used for analysis publicly available?
+* If the software is available, is it well commented?
+* Is there a toy example provided?
+* Are you able to reproduce the figures, tables and results presented in the paper?
+* Was there anything you think should have been made clearer, or explained in a different way?
+* Did you find any faults in the methods used in this paper? Would you have used more or different methods?
+
+
+
+
+
