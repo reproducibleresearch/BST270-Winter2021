@@ -3,7 +3,7 @@
 
 In May 2020, the Georgia Department of Public Health posted the following plot to illustrate the number of confirmed COVID-19 cases in their hardest-hit counties over a two-week period. Health officials claimed that the plot provided evidence that COVID-19 cases were decreasing and made the argument for reopening the state.
 
-![](georgia.png){ width=75% }
+![](georgia.png)
 
 The plot was heavily criticized by the statistical community and several media outlets for its deceptive portrayal of COVID-19 trends in Georgia. Whether the end result was due to malicious intent or simply poor judgment, it is incredibly irresponsible to publish data visualizations that obscure and distort the truth. 
 
@@ -48,15 +48,15 @@ new_cases_7dayavg
 1. New cases as a function of time with a rolling average plot - the first plot on the page (you don't need to recreate the colors or theme)
 2. Table of cases, hospitalizations and deaths - the first table on the page
 
-![](nyt1.png){ width=75% }
+![](nyt1.png)
 
 3. The county-level map for previous week ('Hot spots') - the second plot on the page (only the 'Hot Spots' plot)
 
-![](nyt2.png){ width=75% }
+![](nyt2.png)
 
 4. Table of cases by state - the second table on the page (do not need to include per 100,000 or per capita columns)
 
-![](nyt3.png){ width=75% }
+![](nyt3.png)
 
 
 
